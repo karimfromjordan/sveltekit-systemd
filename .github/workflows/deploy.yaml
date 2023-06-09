@@ -1,0 +1,175 @@
+name: build-and-deploy
+on:
+  push:
+    branches:
+      - 'main'
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v3
+        with:
+          path: app-repo
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'pnpm'
+          cache-dependency-path: '**/pnpm-lock.yaml'
+
+      - name: Install dependencies
+        run: cd app-repo && pnpm install --frozen-lockfile
+
+      - name: Build app
+        run: cd app-repo && pnpm build
+
+      - name: Cache chisel
+        id: cache-chisel
+        uses: actions/cache@v3
+        with:
+          path: chisel
+          key: chisel-${{ runner.os }}-${{ runner.arch }}
+
+      - if: ${{ steps.cache-chisel.outputs.cache-hit != 'true' }}
+        name: Install Golang
+        uses: actions/setup-go@v4
+        with:
+          go-version: 'stable'
+
+      - if: ${{ steps.cache-chisel.outputs.cache-hit != 'true' }}
+        name: Checkout canonical/chisel
+        uses: actions/checkout@v3
+        with:
+          repository: canonical/chisel
+          path: chisel-repo
+
+      - if: ${{ steps.cache-chisel.outputs.cache-hit != 'true' }}
+        name: Build chisel
+        run: cd chisel-repo && ./cmd/mkversion.sh && go build -o $(pwd) $(pwd)/cmd/chisel && mv chisel $GITHUB_WORKSPACE
+
+      - name: Create container file structure
+        run: |
+          mkdir -p \
+            container/dev \
+            container/etc/systemd/system \
+            container/opt/app \
+            container/proc \
+            container/run \
+            container/sys \
+            container/tmp \
+            container/usr/lib \
+            container/var/lib/services/${GITHUB_REPOSITORY##*/} \
+            container/var/tmp
+
+          touch \
+            container/etc/machine-id \
+            container/etc/resolv.conf \
+            container/usr/lib/os-release
+
+      - name: Copy slices into container
+        run: ./chisel cut --root container ca-certificates_data libstdc++6_libs
+
+      - name: Copy Node.js binary into container
+        run: cp $(which node) container/opt
+
+      - name: Copy app into container
+        run: cp -r app-repo/{build,package.json,pnpm-lock.yaml} container/opt/app
+
+      - name: Install production dependencies
+        run: cd container/opt/app && pnpm install --frozen-lockfile --prod
+
+      - name: Create .service file
+        run: |
+          cat <<-EOF > container/etc/systemd/system/${GITHUB_REPOSITORY##*/}.service
+          [Unit]
+          Description=$GITHUB_REPOSITORY
+          StartLimitBurst=5
+          StartLimitIntervalSec=60
+
+          [Service]
+          DynamicUser=yes
+          StateDirectory=services/${GITHUB_REPOSITORY##*/}
+          Environment=PORT=5001 NODE_ENV=production
+          ExecStart=/opt/node /opt/app/build
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+
+      - name: Compress container
+        run: |
+          mksquashfs \
+            container \
+            "${GITHUB_REPOSITORY##*/}_$(date --utc '+%F.%H%M')".raw \
+            -exit-on-error \
+            -quiet \
+            -all-root
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: container
+          path: '*.raw'
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Retrieve container
+        uses: actions/download-artifact@v3
+        with:
+          name: container
+
+      - name: Write SSH keys
+        run: |
+          install -m 600 -D /dev/null ~/.ssh/id_ed25519
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} > ~/.ssh/known_hosts
+
+      - name: Upload container to server
+        run: |
+          scp "${GITHUB_REPOSITORY##*/}_"*.raw ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:
+
+      - name: Attach container
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} <<-'BASH'
+          if ! command -v portablectl &> /dev/null; then
+            echo "### ERROR: portablectl is not installed" >&2 ; exit 10
+          fi
+
+          shopt -s nullglob
+
+          declare -r GITHUB_REPOSITORY='${{ github.repository }}'
+          declare -r name="${GITHUB_REPOSITORY##*/}"
+          declare -a images=("${name}"_*.raw)
+          declare -i n=${#images[@]}
+
+          if (( n == 0 )); then
+            echo "### ERROR: No images were found" >&2 ; exit 10
+          fi
+
+          if (( n == 1 )); then
+            sudo portablectl attach --profile=trusted --enable --now "./${images[0]}" && exit 0 || {
+              echo "### ERROR: Failed to attach image" >&2 ; exit 10
+            }
+          fi
+
+          sudo portablectl reattach --profile=trusted --enable --now "./${images[-1]}" || {
+            echo "### ERROR: Failed to reattach image" >&2 ; exit 10
+          }
+
+          (( n > 2 )) && for (( i=0; i<n-2; i++ )); do
+            rm "${images[$i]}"
+          done
+          BASH
+
+      - name: Delete .ssh directory
+        run: rm -rf ~/.ssh
