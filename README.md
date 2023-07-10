@@ -1,6 +1,8 @@
 # SvelteKit systemd Guide
 
-This repository contains a GitHub workflow with a `build` job that builds your SvelteKit into a very minimal systemd portable service and a `deploy` job that can upload and start the container on your server. The image built by the `build` job only contains your SvelteKit app, a Node.js executable and libc++. The total size of the final image is around 37 MB.
+**[Watch the video tutorial on the Svelte Society Youtube channel](https://www.youtube.com/watch?v=OG70PKD0hEU&t=445s)**
+
+This repository contains a GitHub workflow with a `build` job that builds your SvelteKit app into a very minimal systemd portable service and a `deploy` job that can upload and start the container on your server. The image built by the `build` job only contains your SvelteKit app, a Node.js executable and glibc++. The total size of the final image is approximately 37 MB.
 
 1. [How to use this](#how-to-use-this)
 2. [The service unit file](#the-service-unit-file)
@@ -188,7 +190,7 @@ Make sure to replace the placeholders `<GITHUB_USERNAME>`, `<DOMAIN_NAME>` and `
 
 ### How do I expose my app to the internet?
 
-Once you have deployed your SvelteKit app you still need to expose it so that it can send and receive requests from the internet. It is recommend to use a webserver/reverse proxy application for this. A webserver such as [Caddy](https://caddyserver.com/docs/) or [Nginx](https://nginx.org/en/docs/) not only allows you to host multiple apps on a single VPS but can also manage SSL certificates and other settings for you. Caddy is simpler to configure, provides automatic HTTPS by default and very fast in implementing new features such as support for HTTP3. If you use the [VPS cloud config](https://gist.github.com/karimfromjordan/06dbe35f86468c74dfa89c75a3d00a8c) mentioned in the previous section, Caddy will be installed automatically. You also need to point your domain(s) to the IP address of your VPS. The configuration file can be found at `/etc/caddy/Caddyfile`. To edit it run `nano /etc/caddy/Caddyfile`. A minimal `Caddyfile` for your SvelteKit app would look like this:
+Once you have deployed your SvelteKit app you still need to expose it so that it can send and receive requests from the internet. It is recommend to use a webserver/reverse proxy application for this. A webserver such as [Caddy](https://caddyserver.com/docs/) or [Nginx](https://nginx.org/en/docs/) not only allows you to host multiple apps on a single VPS but can also manage SSL certificates and other settings for you. Caddy is simpler to configure, provides automatic HTTPS by default and very fast in implementing new features such as support for HTTP3. If you use the [VPS cloud config](https://gist.github.com/karimfromjordan/06dbe35f86468c74dfa89c75a3d00a8c) mentioned in the previous section, Caddy will be installed automatically. You also need to point your domain(s) to the IP address of your VPS. The configuration file can be found at `/etc/caddy/Caddyfile`. To edit it run `sudo nano /etc/caddy/Caddyfile`. A minimal `Caddyfile` for your SvelteKit app would look like this:
 
 ```Caddyfile
 example.com {
