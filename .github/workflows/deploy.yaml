@@ -54,7 +54,10 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            - container
+            ~/container/lib
+            ~/container/lib64
+            ~/container/usr
+
           key: chisel-${{ runner.os }}-${{ runner.arch }}
 
       - if: ${{ steps.cache-chisel.outputs.cache-hit != 'true' }}
@@ -103,8 +106,6 @@ jobs:
             -exit-on-error \
             -all-root \
             -quiet
-          
-          ls -l
 
       - uses: actions/upload-artifact@v3
         with:
