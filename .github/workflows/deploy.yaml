@@ -103,6 +103,8 @@ jobs:
             -exit-on-error \
             -all-root \
             -quiet
+          
+          ls -l
 
       - uses: actions/upload-artifact@v3
         with:
