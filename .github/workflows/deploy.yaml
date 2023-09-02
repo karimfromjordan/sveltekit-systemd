@@ -56,7 +56,7 @@ jobs:
           path: |
             - container/lib
             - container/lib64
-            - container/use
+            - container/usr
           key: chisel-${{ runner.os }}-${{ runner.arch }}
 
       - if: ${{ steps.cache-chisel.outputs.cache-hit != 'true' }}
