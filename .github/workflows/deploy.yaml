@@ -54,9 +54,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            ~/container/lib
-            ~/container/lib64
-            ~/container/usr
+            container/lib
+            container/lib64
+            container/usr
 
           key: chisel-${{ runner.os }}-${{ runner.arch }}
 
