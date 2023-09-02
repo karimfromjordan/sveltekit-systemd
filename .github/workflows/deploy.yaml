@@ -10,7 +10,7 @@ jobs:
       - name: Checkout app
         uses: actions/checkout@v3
         with:
-          path: app-repo
+          path: app
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
@@ -25,23 +25,10 @@ jobs:
           cache-dependency-path: '**/pnpm-lock.yaml'
 
       - name: Install dependencies
-        run: cd app-repo && pnpm install --frozen-lockfile
+        run: cd app && pnpm install --frozen-lockfile
 
       - name: Build app
-        run: cd app-repo && pnpm build
-
-      - name: Cache chisel
-        id: cache-chisel
-        uses: actions/cache@v3
-        with:
-          path: chisel
-          key: chisel-${{ runner.os }}-${{ runner.arch }}
-
-      - if: ${{ steps.cache-chisel.outputs.cache-hit != 'true' }}
-        name: Download chisel
-        run: |
-          curl -fsSL https://github.com/canonical/chisel/releases/download/v0.8.0/chisel_v0.8.0_linux_amd64.tar.gz -O \
-          && tar -xzf chisel_v0.8.0_linux_amd64.tar.gz
+        run: cd app && pnpm build
 
       - name: Create container file structure
         run: |
@@ -62,14 +49,31 @@ jobs:
             container/etc/resolv.conf \
             container/usr/lib/os-release
 
-      - name: Copy slices into container
+      - name: Cache chisel
+        id: cache-chisel
+        uses: actions/cache@v3
+        with:
+          path: |
+            - container/lib
+            - container/lib64
+            - container/use
+          key: chisel-${{ runner.os }}-${{ runner.arch }}
+
+      - if: ${{ steps.cache-chisel.outputs.cache-hit != 'true' }}
+        name: Download chisel
+        run: |
+          curl -fsSL https://github.com/canonical/chisel/releases/download/v0.8.0/chisel_v0.8.0_linux_amd64.tar.gz -O \
+          && tar -xzf chisel_v0.8.0_linux_amd64.tar.gz
+
+      - if: ${{ steps.cache-chisel.outputs.cache-hit != 'true' }}
+        name: Copy slices into container
         run: ./chisel cut --release ubuntu-22.04 --root container libstdc++6_libs
 
       - name: Copy Node.js binary into container
         run: cp $(which node) container/opt
 
       - name: Copy app into container
-        run: cp -r app-repo/{build,package.json,pnpm-lock.yaml} container/opt/app
+        run: cp -r app/{build,package.json,pnpm-lock.yaml} container/opt/app
 
       - name: Install production dependencies
         run: cd container/opt/app && pnpm install --frozen-lockfile --prod
