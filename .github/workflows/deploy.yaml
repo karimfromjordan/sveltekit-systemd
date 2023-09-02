@@ -74,7 +74,7 @@ jobs:
             container/usr/lib/os-release
 
       - name: Copy slices into container
-        run: ./chisel cut --root container ca-certificates_data libstdc++6_libs
+        run: ./chisel cut --root container libstdc++6_libs
 
       - name: Copy Node.js binary into container
         run: cp $(which node) container/opt
