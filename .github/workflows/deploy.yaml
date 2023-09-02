@@ -103,8 +103,8 @@ jobs:
             container \
             "${GITHUB_REPOSITORY##*/}_$(date --utc '+%F.%H%M')".raw \
             -exit-on-error \
-            -quiet \
-            -all-root
+            -all-root \
+            -quiet
 
       - uses: actions/upload-artifact@v3
         with:
