@@ -38,21 +38,10 @@ jobs:
           key: chisel-${{ runner.os }}-${{ runner.arch }}
 
       - if: ${{ steps.cache-chisel.outputs.cache-hit != 'true' }}
-        name: Install Golang
-        uses: actions/setup-go@v4
-        with:
-          go-version: 'stable'
-
-      - if: ${{ steps.cache-chisel.outputs.cache-hit != 'true' }}
-        name: Checkout canonical/chisel
-        uses: actions/checkout@v3
-        with:
-          repository: canonical/chisel
-          path: chisel-repo
-
-      - if: ${{ steps.cache-chisel.outputs.cache-hit != 'true' }}
-        name: Build chisel
-        run: cd chisel-repo && ./cmd/mkversion.sh && go build -o $(pwd) $(pwd)/cmd/chisel && mv chisel $GITHUB_WORKSPACE
+        name: Download chisel
+        run: |
+          curl -fsSL https://github.com/canonical/chisel/releases/download/v0.8.0/chisel_v0.8.0_linux_amd64.tar.gz -O \
+          && tar -xzf chisel_v0.8.0_linux_amd64.tar.gz
 
       - name: Create container file structure
         run: |
@@ -74,7 +63,7 @@ jobs:
             container/usr/lib/os-release
 
       - name: Copy slices into container
-        run: ./chisel cut --root container libstdc++6_libs
+        run: ./chisel cut --release ubuntu-22.04 --root container libstdc++6_libs
 
       - name: Copy Node.js binary into container
         run: cp $(which node) container/opt
@@ -165,7 +154,7 @@ jobs:
           sudo portablectl reattach --profile=trusted --enable --now "./${images[-1]}" || {
             echo "### ERROR: Failed to reattach image" >&2 ; exit 10
           }
-          
+
           if (( n > 2 )); then
             for (( i=0; i<n-2; i++ )); do
               rm "${images[$i]}"
