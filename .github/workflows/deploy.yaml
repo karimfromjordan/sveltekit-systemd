@@ -111,7 +111,7 @@ jobs:
         with:
           name: container
           path: '*.raw'
-          retention-days: 3
+          retention-days: 1
 
   deploy:
     needs: build
