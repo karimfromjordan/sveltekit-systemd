@@ -63,7 +63,7 @@ jobs:
       - if: ${{ steps.cache-chisel.outputs.cache-hit != 'true' }}
         name: Download chisel
         run: |
-          curl -fsSL https://github.com/canonical/chisel/releases/download/v0.8.0/chisel_v0.8.0_linux_amd64.tar.gz -O \
+          curl -fsSL https://github.com/canonical/chisel/releases/download/v0.8.1/chisel_v0.8.1_linux_amd64.tar.gz -O \
           && tar -xzf chisel_v0.8.0_linux_amd64.tar.gz
 
       - if: ${{ steps.cache-chisel.outputs.cache-hit != 'true' }}
