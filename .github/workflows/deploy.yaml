@@ -35,19 +35,22 @@ jobs:
           mkdir -p \
             container/dev \
             container/etc/systemd/system \
-            container/opt/app \
             container/proc \
             container/run \
             container/sys \
             container/tmp \
             container/usr/lib \
-            container/var/lib/services/${GITHUB_REPOSITORY##*/} \
-            container/var/tmp
+            container/var/tmp \
+            container/opt/app \
+            container/var/lib/services/${GITHUB_REPOSITORY##*/}
 
           touch \
             container/etc/machine-id \
-            container/etc/resolv.conf \
-            container/usr/lib/os-release
+            container/etc/resolv.conf
+
+          cat <<-EOF > container/usr/lib/os-release
+          ID=${GITHUB_REPOSITORY##*/}
+          EOF
 
       - name: Cache chisel
         id: cache-chisel
@@ -84,13 +87,13 @@ jobs:
           cat <<-EOF > container/etc/systemd/system/${GITHUB_REPOSITORY##*/}.service
           [Unit]
           Description=$GITHUB_REPOSITORY
-          StartLimitBurst=5
-          StartLimitIntervalSec=60
+          StartLimitBurst=3
+          StartLimitIntervalSec=30
 
           [Service]
           DynamicUser=yes
           StateDirectory=services/${GITHUB_REPOSITORY##*/}
-          Environment=PORT=5001 NODE_ENV=production
+          Environment=NODE_ENV=production PORT=5001
           ExecStart=/opt/node /opt/app/build
           Restart=on-failure
 
